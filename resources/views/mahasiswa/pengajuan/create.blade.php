@@ -377,7 +377,7 @@
                             <div class="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
                                 @foreach([
                                     ['Nama Lengkap', $user->nama, 'user-round'],
-                                    ['NIM', $nim, 'id-card'],
+                                    ['NIM / No. Pendaftaran', $nim, 'id-card'],
                                     ['Program Studi', $namaProdi, 'graduation-cap'],
                                     ['Email', $user->email, 'mail'],
                                     ['Angkatan', $angkatan, 'calendar'],

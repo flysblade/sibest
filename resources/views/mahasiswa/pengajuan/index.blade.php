@@ -319,7 +319,7 @@
                                 @if($pengajuan->status === 'draft')
 
                                     <a
-                                        href="{{ route('mahasiswa.pengajuan.create', $pengajuan->id_offering) }}"
+                                        href="{{ route('mahasiswa.pengajuan.upload', $pengajuan->id) }}"
                                         class="h-10 px-4 rounded-lg bg-navy text-white flex items-center gap-2 text-xs font-bold hover:bg-navy-dark"
                                     >
                                         Lanjutkan Pengajuan

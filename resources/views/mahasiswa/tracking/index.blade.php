@@ -183,64 +183,54 @@
                             {{-- Card Tahap --}}
                             <div class="flex-1 min-w-0 border {{ $config['card_border'] }} {{ $config['card_bg'] }} rounded-md p-4">
 
-                                {{-- Header Card --}}
-                                <div class="flex flex-wrap items-start justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <h3 class="font-bold text-[#172a46]">{{ $tahap->nama_tahapan }}</h3>
-                                        <p class="text-xs text-[#6c7890] mt-1">
-                                            @if($tidakDilanjutkan)
-                                                Tahap tidak dilanjutkan karena tahap sebelumnya tidak lolos
-                                            @elseif($tahap->decided_at)
+                                {{-- Header: nama tahap + status --}}
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-bold text-navy">{{ $tahap->nama_tahapan }}</h3>
+
+                                        {{-- Tanggal: cuma muncul kalau BUKAN menunggu --}}
+                                        @if($tahap->status !== 'menunggu' && $tahap->decided_at)
+                                            <p class="text-xs text-muted mt-1">
                                                 Diputuskan {{ \Carbon\Carbon::parse($tahap->decided_at)->translatedFormat('d F Y') }}
-                                            @elseif($tahap->mulai_at)
+                                            </p>
+                                        @elseif($tahap->status === 'menunggu' && $tahap->mulai_at && \Carbon\Carbon::parse($tahap->mulai_at)->isPast())
+                                            <p class="text-xs text-muted mt-1">
                                                 Dijadwalkan {{ \Carbon\Carbon::parse($tahap->mulai_at)->translatedFormat('d F Y') }}
-                                            @else
-                                                Belum ada keputusan
-                                            @endif
-                                        </p>
+                                            </p>
+                                        @endif
                                     </div>
 
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold {{ $config['badge_bg'] }} {{ $config['badge_text'] }} shrink-0">
-                                        {{ $config['label'] }}
+                                    {{-- Badge Status --}}
+                                    <span class="px-2.5 py-1 rounded-md text-[10px] font-bold
+                                        {{ $tahap->status === 'lolos' ? 'bg-green-50 text-green-700' : ($tahap->status === 'gagal' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700') }}">
+                                        {{ ucfirst($tahap->status) }}
                                     </span>
                                 </div>
 
-                                {{-- Sub-cards: Lokasi / Catatan / Pemutus --}}
-                                @if(!$tidakDilanjutkan && ($tahap->lokasi || $tahap->catatan || $tahap->nama_pemutus))
-                                    <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-
-                                        @if($tahap->lokasi)
-                                            <div class="flex items-start gap-2 bg-white/80 rounded-md p-2.5">
-                                                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-[#6c7890] shrink-0 mt-0.5"></i>
-                                                <div class="min-w-0">
-                                                    <p class="text-[10px] font-semibold uppercase text-[#9aa5b7]">Lokasi</p>
-                                                    <p class="text-xs text-[#172a46] font-medium break-words">{{ $tahap->lokasi }}</p>
-                                                </div>
+                                {{-- Info tambahan (Pewawancara + Catatan) --}}
+                                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {{-- Nama Pewawancara (khusus Wawancara & kalau ada) --}}
+                                    @if(strtolower($tahap->nama_tahapan) === 'wawancara' && $tahap->nama_pemutus)
+                                        <div class="flex items-start gap-2 bg-white/70 rounded-md p-2.5">
+                                            <i data-lucide="user-check" class="w-3.5 h-3.5 text-muted shrink-0 mt-0.5"></i>
+                                            <div class="min-w-0">
+                                                <p class="text-[10px] font-semibold uppercase text-gray-400">Pewawancara</p>
+                                                <p class="text-xs text-navy font-medium break-words">{{ $tahap->nama_pemutus }}</p>
                                             </div>
-                                        @endif
+                                        </div>
+                                    @endif
 
-                                        @if($tahap->catatan)
-                                            <div class="flex items-start gap-2 bg-white/80 rounded-md p-2.5">
-                                                <i data-lucide="file-text" class="w-3.5 h-3.5 text-[#6c7890] shrink-0 mt-0.5"></i>
-                                                <div class="min-w-0">
-                                                    <p class="text-[10px] font-semibold uppercase text-[#9aa5b7]">Catatan</p>
-                                                    <p class="text-xs text-[#172a46] font-medium break-words">{{ $tahap->catatan }}</p>
-                                                </div>
+                                    {{-- Catatan (kalau ada) --}}
+                                    @if($tahap->catatan)
+                                        <div class="flex items-start gap-2 bg-white/70 rounded-md p-2.5">
+                                            <i data-lucide="file-text" class="w-3.5 h-3.5 text-muted shrink-0 mt-0.5"></i>
+                                            <div class="min-w-0">
+                                                <p class="text-[10px] font-semibold uppercase text-gray-400">Catatan</p>
+                                                <p class="text-xs text-navy font-medium break-words">{{ $tahap->catatan }}</p>
                                             </div>
-                                        @endif
-
-                                        @if($tahap->nama_pemutus)
-                                            <div class="flex items-start gap-2 bg-white/80 rounded-md p-2.5">
-                                                <i data-lucide="user-check" class="w-3.5 h-3.5 text-[#6c7890] shrink-0 mt-0.5"></i>
-                                                <div class="min-w-0">
-                                                    <p class="text-[10px] font-semibold uppercase text-[#9aa5b7]">Diputuskan oleh</p>
-                                                    <p class="text-xs text-[#172a46] font-medium break-words">{{ $tahap->nama_pemutus }}</p>
-                                                </div>
-                                            </div>
-                                        @endif
-
-                                    </div>
-                                @endif
+                                        </div>
+                                    @endif
+                                </div>
 
                             </div>
                         </div>

@@ -488,6 +488,17 @@
                         Upload dokumen sesuai persyaratan beasiswa.
                     </p>
 
+                    {{-- INFO KHUSUS KIP-K --}}
+                    @if(strtolower($pengajuan->nama_program) === 'kip-k')
+                        <div class="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-100 flex items-start gap-2">
+                            <i data-lucide="info" class="w-4 h-4 text-navy shrink-0 mt-0.5"></i>
+                            <div class="text-xs text-slate-600 leading-relaxed">
+                                <strong class="text-navy">KIP-K:</strong> Wajib upload <strong>Bukti Pendaftaran KIP-K</strong> dari portal pusat.
+                                Dokumen lain bersifat opsional — akan diverifikasi fisik saat wawancara di kampus.
+                            </div>
+                        </div>
+                    @endif
+
                 </div>
 
 

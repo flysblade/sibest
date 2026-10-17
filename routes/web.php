@@ -1,18 +1,15 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RegisterController;
-
 use App\Http\Controllers\MahasiswaDashboardController;
 use App\Http\Controllers\BeasiswaController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\PengumumanController;
-
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\PengajuanController as AdminPengajuanController;
-
 use App\Http\Controllers\Penyeleksi\PengajuanController as PenyeleksiPengajuanController;
 
 
@@ -21,6 +18,18 @@ use App\Http\Controllers\Penyeleksi\PengajuanController as PenyeleksiPengajuanCo
 | AUTH
 |--------------------------------------------------------------------------
 */
+
+Route::get('/', function () {
+    if (Auth::check()) {
+        return match(Auth::user()->role) {
+            'mahasiswa'  => redirect()->route('mahasiswa.dashboard'),
+            'admin'      => redirect()->route('admin.dashboard'),
+            'penyeleksi' => redirect()->route('penyeleksi.dashboard'),
+            default      => redirect()->route('login'),
+        };
+    }
+    return redirect()->route('login');
+});
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
@@ -124,6 +133,16 @@ Route::middleware(['auth', 'role:admin'])
         // Verifikasi dokumen
         Route::post('/dokumen/{id}/verify', [AdminPengajuanController::class, 'verifyDokumen'])
             ->name('dokumen.verify');
+
+        // Kelola User
+        Route::get('/user', [\App\Http\Controllers\Admin\UserController::class, 'index'])
+            ->name('user.index');
+
+        Route::get('/user/{id}/edit', [\App\Http\Controllers\Admin\UserController::class, 'edit'])
+            ->name('user.edit');
+
+        Route::post('/user/{id}/update', [\App\Http\Controllers\Admin\UserController::class, 'update'])
+            ->name('user.update');
     });
 
 
@@ -138,10 +157,13 @@ Route::middleware(['auth', 'role:penyeleksi'])
     ->name('penyeleksi.')
     ->group(function () {
 
-        // Dashboard (masih placeholder)
-        Route::get('/dashboard', function () {
-            return 'Dashboard Penyeleksi';
-        })->name('dashboard');
+        // Dashboard
+        Route::get('/dashboard', [\App\Http\Controllers\Penyeleksi\DashboardController::class, 'index'])
+            ->name('dashboard');
+
+        // Beasiswa Saya
+        Route::get('/beasiswa-saya', [\App\Http\Controllers\Penyeleksi\BeasiswaSayaController::class, 'index'])
+            ->name('beasiswa-saya.index');
 
         // Pengajuan
         Route::get('/pengajuan', [PenyeleksiPengajuanController::class, 'index'])
@@ -150,7 +172,14 @@ Route::middleware(['auth', 'role:penyeleksi'])
         Route::get('/pengajuan/{id}', [PenyeleksiPengajuanController::class, 'show'])
             ->name('pengajuan.show');
 
-        // Keputusan tahapan
+        Route::post('/pengajuan/{id}/status', [PenyeleksiPengajuanController::class, 'updateStatus'])
+            ->name('pengajuan.updateStatus');
+
+        // Verifikasi Dokumen
+        Route::post('/dokumen/{id}/verify', [PenyeleksiPengajuanController::class, 'verifyDokumen'])
+            ->name('dokumen.verify');
+
+        // Keputusan Tahapan
         Route::post('/tahapan/{id}/decide', [PenyeleksiPengajuanController::class, 'decideTahapan'])
             ->name('tahapan.decide');
     });

@@ -187,7 +187,7 @@
                     <!-- Username / NIM -->
                     <div>
                         <label for="username" class="block text-blue-950 text-sm font-semibold mb-2">
-                            Username (NIM)
+                            Username (NIM / No. Pendaftaran)
                         </label>
 
                         <div class="relative">
@@ -201,7 +201,7 @@
                                 name="username"
                                 type="text"
                                 value="{{ old('username') }}"
-                                placeholder="Masukkan NIM"
+                                placeholder="Masukkan NIM / No. Pendaftaran"
                                 autocomplete="username"
                                 maxlength="100"
                                 required

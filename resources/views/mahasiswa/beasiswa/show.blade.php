@@ -100,7 +100,7 @@
 <div class="min-h-screen flex">
 
     {{-- ============ SIDEBAR ============ --}}
-     @include('partials.sidebar-script')
+     @include('partials.sidebar-mahasiswa')
 
     {{-- ============ MAIN ============ --}}
     <main id="mainContent" class="w-full lg:ml-64 transition-[margin] duration-300">

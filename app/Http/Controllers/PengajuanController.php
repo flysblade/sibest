@@ -672,18 +672,17 @@ public function riwayat(): View
                 ->with('error', 'Kamu sudah memiliki pengajuan KIP-K aktif pada periode ini.');
         }
 
-        // Buat pengajuan KIP-K langsung sebagai "diajukan".
-        DB::transaction(function () use ($user, $beasiswa) {
+        // Buat pengajuan KIP-K sebagai DRAFT — mahasiswa upload bukti pendaftaran dulu
+        $pengajuanId = DB::transaction(function () use ($user, $beasiswa) {
 
             $pengajuanId = DB::table('pengajuan')->insertGetId([
                 'id_offering' => $beasiswa->id,
                 'id_mahasiswa' => $user->id,
                 'id_periode' => $beasiswa->id_periode,
-                'status' => 'diajukan',
-                'submitted_at' => now(),
+                'status' => 'draft',
             ]);
 
-            // Tetap membuat record tahapan.
+            // Buat record tahapan
             $tahapan = DB::table('tahapan')
                 ->where('id_offering', $beasiswa->id)
                 ->orderBy('urutan')
@@ -700,10 +699,12 @@ public function riwayat(): View
             if (!empty($dataTahapan)) {
                 DB::table('pengajuan_tahapan')->insert($dataTahapan);
             }
+
+            return $pengajuanId;
         });
 
         return redirect()
-            ->route('mahasiswa.pengajuan.index')
-            ->with('success', 'Pengajuan KIP-K berhasil diajukan ke UNUJA.');
+            ->route('mahasiswa.pengajuan.upload', $pengajuanId)
+            ->with('success', 'Pengajuan KIP-K dibuat. Silakan upload bukti pendaftaran KIP-K.');
     }
 }

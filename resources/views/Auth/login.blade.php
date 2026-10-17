@@ -282,7 +282,7 @@
                                     id="username"
                                     name="username"
                                     value="{{ old('username') }}"
-                                    placeholder="NIM / NIDN / Username"
+                                    placeholder="NIM / No. Pendaftaran / NIDN / Username"
                                     autocomplete="username"
                                     required
                                     autofocus

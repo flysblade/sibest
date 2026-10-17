@@ -95,7 +95,7 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <h2 class="text-xl font-extrabold text-navy">{{ $pengajuan->nama_mahasiswa }}</h2>
-                        <p class="text-sm text-muted mt-0.5">NIM {{ $pengajuan->nim_mahasiswa }} · {{ $pengajuan->email_mahasiswa }}</p>
+                        <p class="text-sm text-muted mt-0.5">NIM / No. Pendaftaran: {{ $pengajuan->nim_mahasiswa }} · {{ $pengajuan->email_mahasiswa }}</p>
                         <div class="flex flex-wrap items-center gap-2 mt-3">
                             <span class="px-2.5 py-1 rounded-md bg-blue-50 text-navy text-[11px] font-bold">
                                 {{ $pengajuan->nama_program }}
@@ -160,7 +160,7 @@
                     @php
                         $dataDiri = [
                             ['Nama Lengkap', $pengajuan->nama_mahasiswa],
-                            ['NIM', $pengajuan->nim_mahasiswa],
+                            ['NIM / No. Pendaftaran', $pengajuan->nim_mahasiswa],
                             ['Email', $pengajuan->email_mahasiswa],
                             ['Program Studi', $profile->prodi ?? '-'],
                             ['Angkatan', $profile->angkatan ?? '-'],

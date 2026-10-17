@@ -32,6 +32,7 @@
                 ['url' => '#',                              'match' => null,                     'icon' => 'graduation-cap',   'label' => 'Program Beasiswa'],
                 ['url' => '#',                              'match' => null,                     'icon' => 'calendar-days',    'label' => 'Offering & Periode'],
                 ['url' => route('admin.pengajuan.index'),   'match' => 'admin.pengajuan.*',      'icon' => 'clipboard-list',   'label' => 'Pengajuan'],
+                ['url' => route('admin.user.index'),        'match' => 'admin.user.*',           'icon' => 'users',             'label' => 'Kelola User'],
                 ['url' => '#',                              'match' => null,                     'icon' => 'megaphone',        'label' => 'Pengumuman'],
             ];
         @endphp

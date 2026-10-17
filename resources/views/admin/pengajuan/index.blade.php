@@ -107,7 +107,7 @@
                             <i data-lucide="search" class="w-4 h-4 text-muted shrink-0"></i>
                             <input type="text" name="search"
                                    value="{{ request('search') }}"
-                                   placeholder="Cari nama / NIM..."
+                                   placeholder="Cari nama / NIM / No. Pendaftaran..."
                                    class="flex-1 outline-none text-sm text-navy placeholder:text-muted">
                         </div>
                     </div>
@@ -168,7 +168,7 @@
                                 <tr>
                                     <th class="text-left px-5 py-3 text-[11px] font-bold uppercase text-muted w-12">No</th>
                                     <th class="text-left px-3 py-3 text-[11px] font-bold uppercase text-muted w-[180px]">Nama</th>
-                                    <th class="text-left px-3 py-3 text-[11px] font-bold uppercase text-muted w-[130px]">NIM</th>
+                                    <th class="text-left px-3 py-3 text-[11px] font-bold uppercase text-muted w-[130px]">NIM / No. Pendaftaran</th>
                                     <th class="text-left px-3 py-3 text-[11px] font-bold uppercase text-muted w-[190px]">Beasiswa</th>
                                     <th class="text-left px-3 py-3 text-[11px] font-bold uppercase text-muted w-[140px]">Tgl Pengajuan</th>
                                     <th class="text-left px-3 py-3 text-[11px] font-bold uppercase text-muted w-[150px]">Status</th>

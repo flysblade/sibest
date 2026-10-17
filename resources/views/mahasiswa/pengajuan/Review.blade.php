@@ -65,7 +65,7 @@
 
 <div class="min-h-screen flex">
 
-    {{============SIDEBAR==============}}
+    {{-- ============SIDEBAR============== --}}
     @include('partials.sidebar-mahasiswa')
     
         {{-- LOGO --}}
@@ -466,7 +466,7 @@
 
                             <div>
                                 <p class="text-[10px] text-slate-500">
-                                    NIM
+                                    NIM / No. Pendaftaran
                                 </p>
 
                                 <p class="text-xs font-bold text-slate-800 mt-1">

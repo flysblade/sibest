@@ -21,21 +21,6 @@ class PengajuanController extends Controller
             ->pluck('id_offering')
             ->toArray();
 
-        // Kalau penyeleksi gak handle offering apapun
-        if (empty($offeringIds)) {
-            return response()->json([
-                'message' => 'Anda belum di-assign ke offering manapun.',
-                'meta' => [
-                    'total' => 0,
-                    'per_page' => 10,
-                    'current_page' => 1,
-                    'last_page' => 1,
-                ],
-                'offerings' => [],
-                'data' => [],
-            ]);
-        }
-
         // ============================================================
         // QUERY DASAR
         // ============================================================
@@ -47,16 +32,17 @@ class PengajuanController extends Controller
             ->join('periode as pr', 'pr.id', '=', 'pg.id_periode')
             // Penyeleksi cuma liat offering yang dia handle
             ->whereIn('pg.id_offering', $offeringIds)
-            // Penyeleksi cuma nilai yang statusnya 'diproses'
-            ->where('pg.status', 'diproses');
+            ->whereIn('pg.status', ['diajukan', 'diproses']);
 
         // ============================================================
         // FILTER: OFFERING
         // ============================================================
         if ($request->filled('offering')) {
             // Pastiin offering yang difilter emang yang dia handle
-            if (in_array($request->offering, $offeringIds)) {
-                $query->where('pg.id_offering', $request->offering);
+            $offeringId = (int) $request->input('offering');
+
+            if (in_array($offeringId, $offeringIds, true)) {
+                $query->where('pg.id_offering', $offeringId);
             }
         }
 
@@ -71,6 +57,26 @@ class PengajuanController extends Controller
             });
         }
 
+        // Filter: Tahapan (by nama_tahapan, bukan id)
+        if ($request->filled('tahapan')) {
+            $namaTahapan = $request->tahapan;
+            $query->whereExists(function ($q) use ($namaTahapan) {
+                $q->select(DB::raw(1))
+                ->from('pengajuan_tahapan as pt')
+                ->join('tahapan as t', 't.id', '=', 'pt.id_tahapan')
+                ->whereColumn('pt.id_pengajuan', 'pg.id')
+                ->where('t.nama_tahapan', $namaTahapan)
+                ->where('pt.status', 'menunggu');
+            });
+        }
+
+        // ============================================================
+        // FILTER: STATUS (per pengajuan)
+        // ============================================================
+        if ($request->filled('status') && $request->status !== 'semua') {
+            $query->where('pg.status', $request->status);
+        }
+
         // ============================================================
         // SELECT + PAGINATE
         // ============================================================
@@ -81,6 +87,7 @@ class PengajuanController extends Controller
                 'pg.hasil_akhir',
                 'pg.submitted_at',
                 'pg.created_at',
+                'pg.id_offering',
                 'u.nama as nama_mahasiswa',
                 'u.username as nim_mahasiswa',
                 'o.id as id_offering',
@@ -124,7 +131,38 @@ class PengajuanController extends Controller
                 'gagal'         => $tahapGagal,
                 'belum_dinilai' => $totalTahapan - $tahapSelesai,
             ];
+            $item->total_tahapan = $totalTahapan;
+            $item->tahapan_selesai = $tahapSelesai;
 
+        // Cari tahapan yang sedang aktif (menunggu)
+        $tahapAktif = DB::table('pengajuan_tahapan as pt')
+            ->join('tahapan as t', 't.id', '=', 'pt.id_tahapan')
+            ->where('pt.id_pengajuan', $item->id)
+            ->where('pt.status', 'menunggu')
+            ->orderBy('t.urutan')
+            ->select('t.id', 't.nama_tahapan', 't.urutan')
+            ->first();
+
+        $item->tahap_aktif_nama = $tahapAktif ? $tahapAktif->nama_tahapan : '-';
+        $item->tahap_aktif_id   = $tahapAktif ? $tahapAktif->id : null;
+
+        // Hitung dokumen uploaded vs wajib
+        $totalWajib = DB::table('dokumen_template')
+            ->where('id_offering', $item->id_offering)
+            ->where('required', 1)
+            ->count();
+
+        $totalUploaded = DB::table('dokumen_pengajuan as dp')
+            ->join('dokumen_template as dt', 'dt.id', '=', 'dp.id_template')
+            ->where('dp.id_pengajuan', $item->id)
+            ->where('dt.required', 1)
+            ->count();
+
+        $item->dokumen_wajib    = $totalWajib;
+        $item->dokumen_uploaded = $totalUploaded;
+
+        // Status untuk tombol aksi (Review vs Lihat)
+        $item->sudah_dinilai_semua = ($item->total_tahapan > 0 && $item->tahapan_selesai >= $item->total_tahapan);
             return $item;
         });
 
@@ -143,25 +181,23 @@ class PengajuanController extends Controller
             ->orderBy('p.nama')
             ->get();
 
-        // ============================================================
-        // RETURN JSON (debug mode)
-        // ============================================================
-        return response()->json([
-            'filter' => [
-                'offering' => $request->input('offering'),
-                'search'   => $request->input('search'),
-            ],
-            'meta' => [
-                'total'         => $pengajuans->total(),
-                'per_page'      => $pengajuans->perPage(),
-                'current_page'  => $pengajuans->currentPage(),
-                'last_page'     => $pengajuans->lastPage(),
-                'from'          => $pengajuans->firstItem(),
-                'to'            => $pengajuans->lastItem(),
-            ],
-            'offerings' => $offerings,
-            'data' => $pengajuans->items(),
-        ]);
+
+
+        // DAFTAR TAHAPAN (buat dropdown filter)
+        $tahapanList = DB::table('tahapan')
+            ->whereIn('id_offering', $offeringIds)
+            ->select('nama_tahapan')
+            ->distinct()
+            ->orderBy('nama_tahapan')
+            ->get();
+
+        // RETURN VIEW
+        return view('penyeleksi.pengajuan.index', compact(
+            'user',
+            'pengajuans',
+            'offerings',
+            'tahapanList'
+        ));
     }
 
     public function show(int $id)
@@ -276,12 +312,20 @@ class PengajuanController extends Controller
                 return $dok;
             });
 
-        // ============================================================
-        // RINGKASAN DOKUMEN
-        // ============================================================
-        $totalWajib       = $dokumens->where('required', 1)->count();
-        $totalWajibUpload = $dokumens->where('required', 1)->whereNotNull('original_filename')->count();
-        $totalWajibVerified = $dokumens->where('required', 1)->where('verified_status', 'verified')->count();
+        // Ringkasan dokumen wajib untuk dikirim ke view.
+        $dokumenWajib = $dokumens->filter(function ($dokumen) {
+            return (int) $dokumen->required === 1;
+        });
+
+        $totalWajib = $dokumenWajib->count();
+        $totalWajibUpload = $dokumenWajib->filter(function ($dokumen) {
+            return !empty($dokumen->id_dokumen_pengajuan);
+        })->count();
+        $totalWajibVerified = $dokumenWajib->filter(function ($dokumen) {
+            return $dokumen->verified_status === 'verified';
+        })->count();
+        $semuaWajibLengkap = $totalWajib === $totalWajibVerified;
+
 
         // ============================================================
         // TAHAPAN SELEKSI (lengkap dengan pemutus + catatan)
@@ -313,30 +357,17 @@ class PengajuanController extends Controller
         // ============================================================
         $canDecide = ($pengajuan->status === 'diproses');
 
-        // ============================================================
-        // RETURN JSON (debug)
-        // ============================================================
-        return response()->json([
-            'can_decide' => $canDecide,
-            'can_decide_reason' => $canDecide
-                ? 'Pengajuan siap dinilai.'
-                : "Pengajuan berstatus '{$pengajuan->status}', hanya bisa dinilai kalau statusnya 'diproses'.",
-            'pengajuan' => $pengajuan,
-            'profil_mahasiswa' => $profile ?? [
-                'user_id' => $pengajuan->id_mahasiswa,
-                'prodi' => null,
-                'angkatan' => null,
-                'no_hp' => null,
-            ],
-            'ringkasan_dokumen' => [
-                'total_wajib'           => $totalWajib,
-                'total_wajib_upload'    => $totalWajibUpload,
-                'total_wajib_verified'  => $totalWajibVerified,
-                'semua_wajib_verified'  => ($totalWajib === $totalWajibVerified),
-            ],
-            'dokumen' => $dokumens,
-            'tahapan' => $tahapans,
-        ]);
+        return view('penyeleksi.pengajuan.show', compact(
+            'canDecide',
+            'pengajuan',
+            'profile',
+            'dokumens',
+            'tahapans',
+            'totalWajib',
+            'totalWajibUpload',
+            'totalWajibVerified',
+            'semuaWajibLengkap'
+        ));
     }
 
     public function decideTahapan(Request $request, int $id)
@@ -347,8 +378,9 @@ class PengajuanController extends Controller
         // VALIDASI INPUT
         // ============================================================
         $request->validate([
-            'status' => ['required', 'in:lolos,gagal'],
-            'note'   => ['nullable', 'string', 'max:1000'],
+            'status'       => ['required', 'in:lolos,gagal'],
+            'note'         => ['nullable', 'string', 'max:1000'],
+            'pewawancara'  => ['nullable', 'string', 'max:255'],
         ]);
 
         // ============================================================
@@ -422,11 +454,16 @@ class PengajuanController extends Controller
         // ============================================================
         // UPDATE TAHAPAN
         // ============================================================
+        $catatanFinal = $request->note;
+        if ($request->filled('pewawancara')) {
+            $catatanFinal = "Pewawancara: {$request->pewawancara}. " . ($request->note ?? '');
+        }
+
         DB::table('pengajuan_tahapan')
             ->where('id', $id)
             ->update([
                 'status'     => $request->status,
-                'catatan'    => $request->note,
+                'catatan'    => trim($catatanFinal ?? ''),
                 'decided_by' => $user->id,
                 'decided_at' => now(),
                 'updated_at' => now(),
@@ -500,5 +537,136 @@ class PengajuanController extends Controller
             'total_tahapan' => $totalTahapan,
             'urutan_terakhir' => $urutanTerakhir,
         ]);
+    }
+
+    // VERIFIKASI DOKUMEN (copy logic dari admin)
+    public function verifyDokumen(Request $request, int $id)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'status' => ['required', 'in:verified,rejected,pending'],
+            'note'   => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if ($request->status === 'rejected' && !$request->filled('note')) {
+            return back()->with('error', 'Catatan wajib diisi kalau dokumen ditolak.');
+        }
+
+        // Cari dokumen
+        $dokumen = DB::table('dokumen_pengajuan')->where('id', $id)->first();
+
+        if (!$dokumen) {
+            return back()->with('error', 'Dokumen tidak ditemukan.');
+        }
+
+        // Cek akses: penyeleksi harus handle offering pengajuan ini
+        $pengajuan = DB::table('pengajuan')->where('id', $dokumen->id_pengajuan)->first();
+        if (!$pengajuan) {
+            return back()->with('error', 'Pengajuan tidak ditemukan.');
+        }
+
+        $punyaAkses = DB::table('offering_penyeleksi')
+            ->where('id_user', $user->id)
+            ->where('id_offering', $pengajuan->id_offering)
+            ->exists();
+
+        if (!$punyaAkses) {
+            abort(403, 'Anda tidak memiliki akses ke dokumen ini.');
+        }
+
+        // Update
+        $updateData = [
+            'verified_status' => $request->status,
+            'verified_by'     => $user->id,
+            'verified_at'     => now(),
+            'verified_note'   => $request->note,
+            'updated_at'      => now(),
+        ];
+
+        if ($request->status === 'pending') {
+            $updateData['verified_by']   = null;
+            $updateData['verified_at']   = null;
+            $updateData['verified_note'] = null;
+        }
+
+        DB::table('dokumen_pengajuan')->where('id', $id)->update($updateData);
+
+        return back()->with('success', 'Status dokumen berhasil diubah.');
+    }
+
+    // UPDATE STATUS PENGAJUAN (copy logic dari admin)
+    public function updateStatus(Request $request, int $id)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'status' => ['required', 'in:diproses,ditolak'],
+            'note'   => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if ($request->status === 'ditolak' && !$request->filled('note')) {
+            return back()->with('error', 'Catatan wajib diisi kalau pengajuan ditolak.');
+        }
+
+        $pengajuan = DB::table('pengajuan')->where('id', $id)->first();
+
+        if (!$pengajuan) {
+            return back()->with('error', 'Pengajuan tidak ditemukan.');
+        }
+
+        // Cek akses
+        $punyaAkses = DB::table('offering_penyeleksi')
+            ->where('id_user', $user->id)
+            ->where('id_offering', $pengajuan->id_offering)
+            ->exists();
+
+        if (!$punyaAkses) {
+            abort(403);
+        }
+
+        $statusSekarang = $pengajuan->status;
+        $statusBoleh = ['diajukan', 'diproses'];
+
+        if (!in_array($statusSekarang, $statusBoleh)) {
+            return back()->with('error', "Status '{$statusSekarang}' tidak bisa diubah.");
+        }
+
+        // Kalau mau diproses, cek dokumen wajib verified semua
+        if ($request->status === 'diproses') {
+            $dokumenWajib = DB::table('dokumen_template as dt')
+                ->leftJoin('dokumen_pengajuan as dp', function ($join) use ($id) {
+                    $join->on('dp.id_template', '=', 'dt.id')
+                        ->where('dp.id_pengajuan', '=', $id);
+                })
+                ->where('dt.id_offering', $pengajuan->id_offering)
+                ->where('dt.required', 1)
+                ->select('dp.verified_status', 'dp.original_filename')
+                ->get();
+
+            $belumVerified = $dokumenWajib->filter(function ($d) {
+                return is_null($d->original_filename) || $d->verified_status !== 'verified';
+            });
+
+            if ($belumVerified->isNotEmpty()) {
+                return back()->with('error', 'Masih ada dokumen wajib yang belum diverifikasi.');
+            }
+        }
+
+        $updateData = [
+            'status'     => $request->status,
+            'updated_at' => now(),
+        ];
+
+        if ($request->filled('note')) {
+            $updateData['admin_note'] = $request->note;
+        }
+        if ($request->status !== 'ditolak') {
+            $updateData['admin_note'] = null;
+        }
+
+        DB::table('pengajuan')->where('id', $id)->update($updateData);
+
+        return back()->with('success', 'Status pengajuan berhasil diubah.');
     }
 }
