@@ -95,13 +95,17 @@ class DashboardController extends Controller
             ])
             ->orderByDesc('o.created_at')
             ->limit(3)
-            ->get()
-            ->map(function ($item) {
-                // Hitung jumlah pengajuan per offering
-                $item->jumlah_pengajuan = DB::table('pengajuan')
-                    ->where('id_offering', $item->id)
-                    ->count();
+            ->get();
 
+        $offeringIds = $offeringAktif->pluck('id');
+        $jumlahPengajuan = DB::table('pengajuan')
+            ->whereIn('id_offering', $offeringIds)
+            ->select('id_offering', DB::raw('COUNT(*) as jumlah_pengajuan'))
+            ->groupBy('id_offering')
+            ->pluck('jumlah_pengajuan', 'id_offering');
+
+        $offeringAktif->each(function ($item) use ($jumlahPengajuan) {
+                $item->jumlah_pengajuan = (int) ($jumlahPengajuan[$item->id] ?? 0);
                 return $item;
             });
 

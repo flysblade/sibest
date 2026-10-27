@@ -1,13 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Mahasiswa;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
-class MahasiswaDashboardController extends Controller
+class DashboardController extends Controller
 {
     public function index(): View
     {
@@ -75,14 +76,21 @@ class MahasiswaDashboardController extends Controller
         $tahapSelesai = 0;
         $totalTahapan = 0;
 
-        foreach ($pengajuanAktif as $pengajuan) {
-            $tahapanQuery = DB::table('pengajuan_tahapan')
-                ->where('id_pengajuan', $pengajuan->id_pengajuan); // <-- Panggil id_pengajuan, bukan id
+        $tahapanStats = DB::table('pengajuan_tahapan')
+            ->whereIn('id_pengajuan', $pengajuanAktif->pluck('id_pengajuan'))
+            ->select(
+                'id_pengajuan',
+                DB::raw('COUNT(*) as total_tahapan'),
+                DB::raw("SUM(CASE WHEN status = 'lolos' THEN 1 ELSE 0 END) as tahap_selesai")
+            )
+            ->groupBy('id_pengajuan')
+            ->get()
+            ->keyBy('id_pengajuan');
 
-            $pengajuan->total_tahapan = (clone $tahapanQuery)->count();
-            $pengajuan->tahap_selesai = (clone $tahapanQuery)
-                ->where('status', 'lolos')
-                ->count();
+        foreach ($pengajuanAktif as $pengajuan) {
+            $stats = $tahapanStats->get($pengajuan->id_pengajuan);
+            $pengajuan->total_tahapan = (int) ($stats->total_tahapan ?? 0);
+            $pengajuan->tahap_selesai = (int) ($stats->tahap_selesai ?? 0);
 
             $totalTahapan += $pengajuan->total_tahapan;
             $tahapSelesai += $pengajuan->tahap_selesai;

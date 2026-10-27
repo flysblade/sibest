@@ -103,26 +103,52 @@ class PengajuanController extends Controller
         // ============================================================
         // HITUNG PROGRESS TAHAPAN PER PENGAJUAN
         // ============================================================
-        $pengajuans->getCollection()->transform(function ($item) {
+        $pageItems = $pengajuans->getCollection();
+        $stageStats = DB::table('pengajuan_tahapan')
+            ->whereIn('id_pengajuan', $pageItems->pluck('id'))
+            ->select(
+                'id_pengajuan',
+                DB::raw('COUNT(*) as total_tahapan'),
+                DB::raw("SUM(CASE WHEN status IN ('lolos', 'gagal') THEN 1 ELSE 0 END) as tahap_selesai"),
+                DB::raw("SUM(CASE WHEN status = 'lolos' THEN 1 ELSE 0 END) as tahap_lolos"),
+                DB::raw("SUM(CASE WHEN status = 'gagal' THEN 1 ELSE 0 END) as tahap_gagal")
+            )
+            ->groupBy('id_pengajuan')
+            ->get()
+            ->keyBy('id_pengajuan');
 
-            $totalTahapan = DB::table('pengajuan_tahapan')
-                ->where('id_pengajuan', $item->id)
-                ->count();
+        $activeStages = $pageItems->isEmpty()
+            ? collect()
+            : DB::table('pengajuan_tahapan as pt')
+                ->join('tahapan as t', 't.id', '=', 'pt.id_tahapan')
+                ->whereIn('pt.id_pengajuan', $pageItems->pluck('id'))
+                ->where('pt.status', 'menunggu')
+                ->orderBy('t.urutan')
+                ->select('pt.id_pengajuan', 't.id', 't.nama_tahapan', 't.urutan')
+                ->get()
+                ->groupBy('id_pengajuan');
 
-            $tahapSelesai = DB::table('pengajuan_tahapan')
-                ->where('id_pengajuan', $item->id)
-                ->whereIn('status', ['lolos', 'gagal'])
-                ->count();
+        $totalWajibByOffering = DB::table('dokumen_template')
+            ->whereIn('id_offering', $pageItems->pluck('id_offering'))
+            ->where('required', 1)
+            ->select('id_offering', DB::raw('COUNT(*) as total_wajib'))
+            ->groupBy('id_offering')
+            ->pluck('total_wajib', 'id_offering');
 
-            $tahapLolos = DB::table('pengajuan_tahapan')
-                ->where('id_pengajuan', $item->id)
-                ->where('status', 'lolos')
-                ->count();
+        $uploadedDocuments = DB::table('dokumen_pengajuan as dp')
+            ->join('dokumen_template as dt', 'dt.id', '=', 'dp.id_template')
+            ->whereIn('dp.id_pengajuan', $pageItems->pluck('id'))
+            ->where('dt.required', 1)
+            ->select('dp.id_pengajuan', DB::raw('COUNT(*) as total_uploaded'))
+            ->groupBy('dp.id_pengajuan')
+            ->pluck('total_uploaded', 'dp.id_pengajuan');
 
-            $tahapGagal = DB::table('pengajuan_tahapan')
-                ->where('id_pengajuan', $item->id)
-                ->where('status', 'gagal')
-                ->count();
+        $pageItems->transform(function ($item) use ($stageStats, $activeStages, $totalWajibByOffering, $uploadedDocuments) {
+            $stats = $stageStats->get($item->id);
+            $totalTahapan = (int) ($stats->total_tahapan ?? 0);
+            $tahapSelesai = (int) ($stats->tahap_selesai ?? 0);
+            $tahapLolos = (int) ($stats->tahap_lolos ?? 0);
+            $tahapGagal = (int) ($stats->tahap_gagal ?? 0);
 
             $item->progress = [
                 'total'         => $totalTahapan,
@@ -131,39 +157,16 @@ class PengajuanController extends Controller
                 'gagal'         => $tahapGagal,
                 'belum_dinilai' => $totalTahapan - $tahapSelesai,
             ];
-            $item->total_tahapan = $totalTahapan;
-            $item->tahapan_selesai = $tahapSelesai;
+        $item->total_tahapan = $totalTahapan;
+        $item->tahapan_selesai = $tahapSelesai;
 
-        // Cari tahapan yang sedang aktif (menunggu)
-        $tahapAktif = DB::table('pengajuan_tahapan as pt')
-            ->join('tahapan as t', 't.id', '=', 'pt.id_tahapan')
-            ->where('pt.id_pengajuan', $item->id)
-            ->where('pt.status', 'menunggu')
-            ->orderBy('t.urutan')
-            ->select('t.id', 't.nama_tahapan', 't.urutan')
-            ->first();
-
+        $tahapAktif = ($activeStages->get($item->id) ?? collect())->first();
         $item->tahap_aktif_nama = $tahapAktif ? $tahapAktif->nama_tahapan : '-';
-        $item->tahap_aktif_id   = $tahapAktif ? $tahapAktif->id : null;
-
-        // Hitung dokumen uploaded vs wajib
-        $totalWajib = DB::table('dokumen_template')
-            ->where('id_offering', $item->id_offering)
-            ->where('required', 1)
-            ->count();
-
-        $totalUploaded = DB::table('dokumen_pengajuan as dp')
-            ->join('dokumen_template as dt', 'dt.id', '=', 'dp.id_template')
-            ->where('dp.id_pengajuan', $item->id)
-            ->where('dt.required', 1)
-            ->count();
-
-        $item->dokumen_wajib    = $totalWajib;
-        $item->dokumen_uploaded = $totalUploaded;
-
-        // Status untuk tombol aksi (Review vs Lihat)
+        $item->tahap_aktif_id = $tahapAktif ? $tahapAktif->id : null;
+        $item->dokumen_wajib = (int) ($totalWajibByOffering[$item->id_offering] ?? 0);
+        $item->dokumen_uploaded = (int) ($uploadedDocuments[$item->id] ?? 0);
         $item->sudah_dinilai_semua = ($item->total_tahapan > 0 && $item->tahapan_selesai >= $item->total_tahapan);
-            return $item;
+        return $item;
         });
 
         // ============================================================
@@ -253,20 +256,18 @@ class PengajuanController extends Controller
         // KALAU GAK KETEMU → 404
         // ============================================================
         if (!$pengajuan) {
-            return response()->json([
-                'error' => 'Pengajuan tidak ditemukan',
-                'id'    => $id,
-            ], 404);
+            return redirect()
+                ->route('penyeleksi.pengajuan.index')
+                ->with('error', 'Pengajuan tidak ditemukan.');
         }
 
         // ============================================================
         // CEK AKSES: offering pengajuan ini di-handle penyeleksi?
         // ============================================================
         if (!in_array($pengajuan->id_offering, $offeringIds)) {
-            return response()->json([
-                'error' => 'Anda tidak memiliki akses ke pengajuan ini.',
-                'id_offering' => $pengajuan->id_offering,
-            ], 403);
+            return redirect()
+                ->route('penyeleksi.pengajuan.index')
+                ->with('error', 'Anda tidak memiliki akses ke pengajuan ini.');
         }
 
         // ============================================================
@@ -405,10 +406,7 @@ class PengajuanController extends Controller
             ->first();
 
         if (!$tahapan) {
-            return response()->json([
-                'error' => 'Tahapan tidak ditemukan',
-                'id'    => $id,
-            ], 404);
+            return back()->with('error', 'Tahapan tidak ditemukan.');
         }
 
         // ============================================================
@@ -420,19 +418,17 @@ class PengajuanController extends Controller
             ->exists();
 
         if (!$punyaAkses) {
-            return response()->json([
-                'error' => 'Anda tidak memiliki akses ke tahapan ini.',
-                'id_offering' => $tahapan->id_offering,
-            ], 403);
+            return back()->with('error', 'Anda tidak memiliki akses ke tahapan ini.');
         }
 
         // ============================================================
         // CEK STATUS PENGAJUAN: harus 'diproses'
         // ============================================================
         if ($tahapan->status_pengajuan !== 'diproses') {
-            return response()->json([
-                'error' => "Pengajuan berstatus '{$tahapan->status_pengajuan}'. Penilaian cuma bisa dilakukan saat status 'diproses'.",
-            ], 422);
+            return back()->with(
+                'error',
+                "Pengajuan berstatus '{$tahapan->status_pengajuan}'. Penilaian cuma bisa dilakukan saat status 'diproses'."
+            );
         }
 
         // ============================================================
@@ -446,9 +442,7 @@ class PengajuanController extends Controller
             ->exists();
 
         if ($tahapanSebelumnyaBelumDinilai) {
-            return response()->json([
-                'error' => 'Tahapan sebelumnya belum dinilai. Nilai secara berurutan.',
-            ], 422);
+            return back()->with('error', 'Tahapan sebelumnya belum dinilai. Nilai secara berurutan.');
         }
 
         // ============================================================
@@ -509,34 +503,9 @@ class PengajuanController extends Controller
             ];
         }
 
-        // ============================================================
-        // AMBIL DATA BARU
-        // ============================================================
-        $tahapanBaru = DB::table('pengajuan_tahapan as pt')
-            ->join('tahapan as t', 't.id', '=', 'pt.id_tahapan')
-            ->leftJoin('users as u', 'u.id', '=', 'pt.decided_by')
-            ->where('pt.id', $id)
-            ->select([
-                'pt.id',
-                'pt.status',
-                'pt.catatan',
-                'pt.decided_at',
-                't.nama_tahapan',
-                't.urutan',
-                'u.nama as nama_pemutus',
-            ])
-            ->first();
-
-        // ============================================================
-        // RETURN JSON
-        // ============================================================
-        return response()->json([
-            'message' => 'Keputusan tahapan berhasil disimpan.',
-            'tahapan' => $tahapanBaru,
-            'pengajuan_updated' => $updatePengajuan,
-            'total_tahapan' => $totalTahapan,
-            'urutan_terakhir' => $urutanTerakhir,
-        ]);
+        return redirect()
+            ->route('penyeleksi.pengajuan.show', $tahapan->id_pengajuan)
+            ->with('success', 'Keputusan tahapan berhasil disimpan.');
     }
 
     // VERIFIKASI DOKUMEN (copy logic dari admin)
@@ -592,7 +561,9 @@ class PengajuanController extends Controller
 
         DB::table('dokumen_pengajuan')->where('id', $id)->update($updateData);
 
-        return back()->with('success', 'Status dokumen berhasil diubah.');
+        return redirect()
+            ->route('penyeleksi.pengajuan.show', $dokumen->id_pengajuan)
+            ->with('success', 'Status dokumen berhasil diubah.');
     }
 
     // UPDATE STATUS PENGAJUAN (copy logic dari admin)

@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Mahasiswa;
 
+use App\Http\Controllers\Controller;
 use App\Models\BeasiswaOffering;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;

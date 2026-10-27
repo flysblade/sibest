@@ -36,6 +36,36 @@ class UserController extends Controller
         return view('admin.user.index', compact('users'));
     }
 
+    public function create()
+    {
+        return view('admin.user.create');
+    }
+
+public function store(Request $request)
+{
+    $request->validate([
+        'nama'     => ['required', 'string', 'max:255'],
+        'username' => ['required', 'string', 'max:100', 'unique:users,username'],
+        'email'    => ['required', 'email', 'max:255', 'unique:users,email'],
+        'password' => ['required', 'string', 'min:8', 'confirmed'],
+        'role'     => ['required', 'in:mahasiswa,admin,penyeleksi'],
+    ]);
+
+    DB::table('users')->insert([
+        'nama'          => $request->nama,
+        'username'      => $request->username,
+        'email'         => $request->email,
+        'password_hash' => Hash::make($request->password),
+        'role'          => $request->role,
+        'created_at'    => now(),
+        'updated_at'    => now(),
+    ]);
+
+    return redirect()
+        ->route('admin.user.index')
+        ->with('success', "User {$request->nama} berhasil ditambahkan.");
+}
+
     public function edit(int $id)
     {
         $user = DB::table('users')->where('id', $id)->first();

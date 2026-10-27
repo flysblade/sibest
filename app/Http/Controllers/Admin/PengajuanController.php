@@ -81,32 +81,33 @@ class PengajuanController extends Controller
             ->get();
 
         // DOKUMEN PROGRESS PER PENGAJUAN
-        $pengajuans->getCollection()->transform(function ($item) {
+        $pageItems = $pengajuans->getCollection();
+        $totalWajibByOffering = DB::table('dokumen_template')
+            ->whereIn('id_offering', $pageItems->pluck('id_offering'))
+            ->where('required', 1)
+            ->select('id_offering', DB::raw('COUNT(*) as total_wajib'))
+            ->groupBy('id_offering')
+            ->pluck('total_wajib', 'id_offering');
 
-            // Total dokumen wajib untuk offering ini
-            $totalWajib = DB::table('dokumen_template')
-                ->where('id_offering', $item->id_offering)
-                ->where('required', 1)
-                ->count();
+        $documentStats = DB::table('dokumen_pengajuan as dp')
+            ->join('dokumen_template as dt', 'dt.id', '=', 'dp.id_template')
+            ->whereIn('dp.id_pengajuan', $pageItems->pluck('id'))
+            ->where('dt.required', 1)
+            ->select(
+                'dp.id_pengajuan',
+                DB::raw('COUNT(*) as total_uploaded'),
+                DB::raw("SUM(CASE WHEN dp.verified_status = 'verified' THEN 1 ELSE 0 END) as total_verified")
+            )
+            ->groupBy('dp.id_pengajuan')
+            ->get()
+            ->keyBy('id_pengajuan');
 
-            // Total wajib yang sudah diverifikasi (verified) untuk pengajuan ini
-            $totalVerified = DB::table('dokumen_pengajuan as dp')
-                ->join('dokumen_template as dt', 'dt.id', '=', 'dp.id_template')
-                ->where('dp.id_pengajuan', $item->id)
-                ->where('dt.required', 1)
-                ->where('dp.verified_status', 'verified')
-                ->count();
+        $pageItems->transform(function ($item) use ($totalWajibByOffering, $documentStats) {
+            $stats = $documentStats->get($item->id);
 
-            // Total wajib yang sudah diupload (belum tentu verified)
-            $totalUploaded = DB::table('dokumen_pengajuan as dp')
-                ->join('dokumen_template as dt', 'dt.id', '=', 'dp.id_template')
-                ->where('dp.id_pengajuan', $item->id)
-                ->where('dt.required', 1)
-                ->count();
-
-            $item->dokumen_wajib      = $totalWajib;
-            $item->dokumen_verified   = $totalVerified;
-            $item->dokumen_uploaded   = $totalUploaded;
+            $item->dokumen_wajib = (int) ($totalWajibByOffering[$item->id_offering] ?? 0);
+            $item->dokumen_verified = (int) ($stats->total_verified ?? 0);
+            $item->dokumen_uploaded = (int) ($stats->total_uploaded ?? 0);
 
             return $item;
         });
@@ -160,13 +161,12 @@ class PengajuanController extends Controller
             ->first();
 
         // ============================================================
-        // KALAU GAK KETEMU → 404 JSON
+        // KALAU GAK KETEMU → KEMBALI KE DAFTAR
         // ============================================================
         if (!$pengajuan) {
-            return response()->json([
-                'error' => 'Pengajuan tidak ditemukan',
-                'id'    => $id,
-            ], 404);
+            return redirect()
+                ->route('admin.pengajuan.index')
+                ->with('error', 'Pengajuan tidak ditemukan.');
         }
 
         // ============================================================
@@ -276,9 +276,7 @@ class PengajuanController extends Controller
 
         // Kalau status = rejected, note wajib
         if ($request->status === 'rejected' && !$request->filled('note')) {
-            return response()->json([
-                'error' => 'Catatan wajib diisi kalau dokumen ditolak.',
-            ], 422);
+            return back()->with('error', 'Catatan wajib diisi kalau dokumen ditolak.');
         }
 
         // ============================================================
@@ -289,10 +287,7 @@ class PengajuanController extends Controller
             ->first();
 
         if (!$dokumen) {
-            return response()->json([
-                'error' => 'Dokumen tidak ditemukan',
-                'id'    => $id,
-            ], 404);
+            return back()->with('error', 'Dokumen tidak ditemukan.');
         }
 
         // ============================================================
@@ -317,31 +312,9 @@ class PengajuanController extends Controller
             ->where('id', $id)
             ->update($updateData);
 
-        // ============================================================
-        // AMBIL DATA BARU SETELAH UPDATE
-        // ============================================================
-        $dokumenBaru = DB::table('dokumen_pengajuan as dp')
-            ->leftJoin('users as u', 'u.id', '=', 'dp.verified_by')
-            ->where('dp.id', $id)
-            ->select([
-                'dp.id',
-                'dp.id_pengajuan',
-                'dp.id_template',
-                'dp.original_filename',
-                'dp.verified_status',
-                'dp.verified_at',
-                'dp.verified_note',
-                'u.nama as nama_verifier',
-            ])
-            ->first();
-
-        // ============================================================
-        // RETURN JSON (debug)
-        // ============================================================
-        return response()->json([
-            'message' => 'Status dokumen berhasil diubah.',
-            'dokumen' => $dokumenBaru,
-        ]);
+        return redirect()
+            ->route('admin.pengajuan.show', $dokumen->id_pengajuan)
+            ->with('success', 'Status dokumen berhasil diubah.');
     }
 
     public function updateStatus(Request $request, int $id)
@@ -356,9 +329,7 @@ class PengajuanController extends Controller
 
         // Kalau status = ditolak, note wajib
         if ($request->status === 'ditolak' && !$request->filled('note')) {
-            return response()->json([
-                'error' => 'Catatan wajib diisi kalau pengajuan ditolak.',
-            ], 422);
+            return back()->with('error', 'Catatan wajib diisi kalau pengajuan ditolak.');
         }
 
         // ============================================================
@@ -369,10 +340,9 @@ class PengajuanController extends Controller
             ->first();
 
         if (!$pengajuan) {
-            return response()->json([
-                'error' => 'Pengajuan tidak ditemukan',
-                'id'    => $id,
-            ], 404);
+            return redirect()
+                ->route('admin.pengajuan.index')
+                ->with('error', 'Pengajuan tidak ditemukan.');
         }
 
         // ============================================================
@@ -384,10 +354,10 @@ class PengajuanController extends Controller
         $statusBolehDiubahAdmin = ['diajukan', 'diproses'];
 
         if (!in_array($statusSekarang, $statusBolehDiubahAdmin)) {
-            return response()->json([
-                'error' => "Status pengajuan saat ini '{$statusSekarang}' tidak bisa diubah oleh admin.",
-                'status_saat_ini' => $statusSekarang,
-            ], 422);
+            return back()->with(
+                'error',
+                "Status pengajuan saat ini '{$statusSekarang}' tidak bisa diubah oleh admin."
+            );
         }
 
         // ============================================================
@@ -417,10 +387,7 @@ class PengajuanController extends Controller
             });
 
             if ($belumUpload->isNotEmpty()) {
-                return response()->json([
-                    'error' => 'Masih ada dokumen wajib yang belum diupload.',
-                    'dokumen_belum_upload' => $belumUpload->values(),
-                ], 422);
+                return back()->with('error', 'Masih ada dokumen wajib yang belum diupload.');
             }
 
             // Cek yang belum diverifikasi
@@ -429,10 +396,7 @@ class PengajuanController extends Controller
             });
 
             if ($belumVerified->isNotEmpty()) {
-                return response()->json([
-                    'error' => 'Masih ada dokumen wajib yang belum diverifikasi.',
-                    'dokumen_belum_verified' => $belumVerified->values(),
-                ], 422);
+                return back()->with('error', 'Masih ada dokumen wajib yang belum diverifikasi.');
             }
         }
 
@@ -470,21 +434,8 @@ DB::table('pengajuan')
             ->where('id', $id)
             ->update($updateData);
 
-        // ============================================================
-        // AMBIL DATA BARU
-        // ============================================================
-        $pengajuanBaru = DB::table('pengajuan')
-            ->where('id', $id)
-            ->select('id', 'status', 'hasil_akhir', 'updated_at')
-            ->first();
-
-        // ============================================================
-        // RETURN JSON
-        // ============================================================
-        return response()->json([
-            'message' => 'Status pengajuan berhasil diubah.',
-            'note' => $request->note,
-            'pengajuan' => $pengajuanBaru,
-        ]);
+        return redirect()
+            ->route('admin.pengajuan.show', $pengajuan->id)
+            ->with('success', 'Status pengajuan berhasil diubah.');
     }
 }

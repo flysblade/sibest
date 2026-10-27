@@ -36,55 +36,59 @@ class BeasiswaSayaController extends Controller
                 'p.deskripsi',
                 'pr.nama_periode',
             ])
+            ->get();
+
+        $offeringStats = DB::table('pengajuan')
+            ->whereIn('id_offering', $offeringIds)
+            ->select(
+                'id_offering',
+                DB::raw('COUNT(*) as total_pengajuan'),
+                DB::raw("SUM(CASE WHEN status = 'diproses' THEN 1 ELSE 0 END) as menunggu_review"),
+                DB::raw("SUM(CASE WHEN status IN ('selesai', 'ditolak') THEN 1 ELSE 0 END) as selesai_review")
+            )
+            ->groupBy('id_offering')
             ->get()
-            ->map(function ($item) {
-                // Statistik pengajuan per offering
-                $item->total_pengajuan = DB::table('pengajuan')
-                    ->where('id_offering', $item->id)
-                    ->count();
+            ->keyBy('id_offering');
 
-                $item->menunggu_review = DB::table('pengajuan')
-                    ->where('id_offering', $item->id)
-                    ->where('status', 'diproses')
-                    ->count();
+        $tahapan = DB::table('tahapan')
+            ->whereIn('id_offering', $offeringIds)
+            ->orderBy('urutan')
+            ->select('id', 'id_offering', 'nama_tahapan', 'urutan', 'mulai_at', 'selesai_at', 'lokasi')
+            ->get();
 
-                $item->selesai_review = DB::table('pengajuan')
-                    ->where('id_offering', $item->id)
-                    ->whereIn('status', ['selesai', 'ditolak'])
-                    ->count();
+        $tahapanDinilai = DB::table('pengajuan_tahapan as pt')
+            ->join('pengajuan as pg', 'pg.id', '=', 'pt.id_pengajuan')
+            ->whereIn('pg.id_offering', $offeringIds)
+            ->whereIn('pt.status', ['lolos', 'gagal'])
+            ->select('pg.id_offering', 'pt.id_tahapan', DB::raw('COUNT(*) as sudah_dinilai'))
+            ->groupBy('pg.id_offering', 'pt.id_tahapan')
+            ->get()
+            ->keyBy(function ($item) {
+                return $item->id_offering . ':' . $item->id_tahapan;
+            });
 
-                // Tahapan per offering
-                $item->tahapan = DB::table('tahapan')
+        $offerings->map(function ($item) use ($offeringStats, $tahapan, $tahapanDinilai) {
+                $stats = $offeringStats->get($item->id);
+                $item->total_pengajuan = (int) ($stats->total_pengajuan ?? 0);
+                $item->menunggu_review = (int) ($stats->menunggu_review ?? 0);
+                $item->selesai_review = (int) ($stats->selesai_review ?? 0);
+                $item->tahapan = $tahapan
                     ->where('id_offering', $item->id)
-                    ->orderBy('urutan')
-                    ->select('id', 'nama_tahapan', 'urutan', 'mulai_at', 'selesai_at', 'lokasi')
-                    ->get()
-                    ->map(function ($tahap) use ($item) {
-                        // Hitung berapa pengajuan yang udah dinilai di tahap ini
-                        $tahap->sudah_dinilai = DB::table('pengajuan_tahapan as pt')
-                            ->join('pengajuan as pg', 'pg.id', '=', 'pt.id_pengajuan')
-                            ->where('pg.id_offering', $item->id)
-                            ->where('pt.id_tahapan', $tahap->id)
-                            ->whereIn('pt.status', ['lolos', 'gagal'])
-                            ->count();
-
+                    ->map(function ($tahap) use ($item, $tahapanDinilai) {
+                        $key = $item->id . ':' . $tahap->id;
+                        $stats = $tahapanDinilai->get($key);
+                        $tahap->sudah_dinilai = (int) ($stats->sudah_dinilai ?? 0);
                         return $tahap;
-                    });
-
+                    })
+                    ->values();
                 return $item;
             });
 
         // ============================================================
-        // RETURN JSON (debug mode)
-        // ============================================================
-        return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'nama' => $user->nama,
-                'role' => $user->role,
-            ],
-            'total_offering' => count($offeringIds),
-            'offerings' => $offerings,
-        ]);
+        return view('penyeleksi.beasiswa-saya.index', compact(
+            'user',
+            'offerings',
+            'offeringIds'
+        ));
     }
 }

@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Mahasiswa;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -455,6 +456,17 @@ public function riwayat(): View
     {
         $user = Auth::user();
 
+        $sudahLulus = DB::table('pengajuan')
+            ->where('id_mahasiswa', $user->id)
+            ->where('hasil_akhir', 'lulus')
+            ->exists();
+
+        abort_if(
+            $sudahLulus,
+            403,
+            'Kamu sudah lulus menerima beasiswa dan tidak dapat mengajukan beasiswa lain.'
+        );
+
         // Form ini dipakai untuk beasiswa internal
         // yang membutuhkan pengajuan + upload dokumen melalui SIBEST.
         $beasiswa = DB::table('beasiswa_offering as o')
@@ -522,6 +534,17 @@ public function riwayat(): View
     public function store(int $id)
     {
         $user = Auth::user();
+
+        $sudahLulus = DB::table('pengajuan')
+            ->where('id_mahasiswa', $user->id)
+            ->where('hasil_akhir', 'lulus')
+            ->exists();
+
+        abort_if(
+            $sudahLulus,
+            403,
+            'Kamu sudah lulus menerima beasiswa dan tidak dapat mengajukan beasiswa lain.'
+        );
 
         // Method ini untuk beasiswa INTERNAL.
         // KIP-K punya method khusus storeKipK() di bawah.
@@ -609,6 +632,17 @@ public function riwayat(): View
     public function storeKipK(int $id)
     {
         $user = Auth::user();
+
+        $sudahLulus = DB::table('pengajuan')
+            ->where('id_mahasiswa', $user->id)
+            ->where('hasil_akhir', 'lulus')
+            ->exists();
+
+        abort_if(
+            $sudahLulus,
+            403,
+            'Kamu sudah lulus menerima beasiswa dan tidak dapat mengajukan beasiswa lain.'
+        );
 
         // KIP-K menggunakan jalur hybrid:
         // daftar di portal KIP-K, lalu pengajuan ke UNUJA lewat SIBEST.

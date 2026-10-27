@@ -44,6 +44,18 @@ class DashboardController extends Controller
         // ============================================================
         // SECTION: OFFERING YANG DITUGASKAN
         // ============================================================
+        $offeringStats = DB::table('pengajuan')
+            ->whereIn('id_offering', $offeringIds)
+            ->select(
+                'id_offering',
+                DB::raw('COUNT(*) as total_pengajuan'),
+                DB::raw("SUM(CASE WHEN status = 'diproses' THEN 1 ELSE 0 END) as menunggu_review"),
+                DB::raw("SUM(CASE WHEN status IN ('selesai', 'ditolak') THEN 1 ELSE 0 END) as sudah_review")
+            )
+            ->groupBy('id_offering')
+            ->get()
+            ->keyBy('id_offering');
+
         $offerings = DB::table('beasiswa_offering as o')
             ->join('beasiswa_program as p', 'p.id', '=', 'o.id_program')
             ->join('periode as pr', 'pr.id', '=', 'o.id_periode')
@@ -56,24 +68,11 @@ class DashboardController extends Controller
                 'pr.nama_periode',
             ])
             ->get()
-            ->map(function ($item) {
-                // Total pengajuan per offering
-                $item->total_pengajuan = DB::table('pengajuan')
-                    ->where('id_offering', $item->id)
-                    ->count();
-
-                // Menunggu review (status diproses)
-                $item->menunggu_review = DB::table('pengajuan')
-                    ->where('id_offering', $item->id)
-                    ->where('status', 'diproses')
-                    ->count();
-
-                // Sudah direview (selesai/ditolak)
-                $item->sudah_review = DB::table('pengajuan')
-                    ->where('id_offering', $item->id)
-                    ->whereIn('status', ['selesai', 'ditolak'])
-                    ->count();
-
+            ->map(function ($item) use ($offeringStats) {
+                $stats = $offeringStats->get($item->id);
+                $item->total_pengajuan = (int) ($stats->total_pengajuan ?? 0);
+                $item->menunggu_review = (int) ($stats->menunggu_review ?? 0);
+                $item->sudah_review = (int) ($stats->sudah_review ?? 0);
                 return $item;
             });
 
@@ -86,6 +85,7 @@ class DashboardController extends Controller
             ->join('beasiswa_program as p', 'p.id', '=', 'o.id_program')
             ->whereIn('pg.status', ['diajukan', 'diproses'])
             ->where('pg.status', 'diproses')
+            ->whereIn('pg.id_offering', $offeringIds)
             ->select([
                 'pg.id',
                 'pg.status',
@@ -97,17 +97,21 @@ class DashboardController extends Controller
             ])
             ->orderByDesc('pg.submitted_at')
             ->limit(10)
-            ->get()
-            ->map(function ($item) {
-                // Cari tahapan yang sedang aktif (menunggu)
-                $tahapAktif = DB::table('pengajuan_tahapan as pt')
-                    ->join('tahapan as t', 't.id', '=', 'pt.id_tahapan')
-                    ->where('pt.id_pengajuan', $item->id)
-                    ->where('pt.status', 'menunggu')
-                    ->orderBy('t.urutan')
-                    ->select('t.nama_tahapan', 't.urutan')
-                    ->first();
+            ->get();
 
+        $tahapAktifByPengajuan = $pengajuanPerlu->isEmpty()
+            ? collect()
+            : DB::table('pengajuan_tahapan as pt')
+                ->join('tahapan as t', 't.id', '=', 'pt.id_tahapan')
+                ->whereIn('pt.id_pengajuan', $pengajuanPerlu->pluck('id'))
+                ->where('pt.status', 'menunggu')
+                ->orderBy('t.urutan')
+                ->select('pt.id_pengajuan', 't.nama_tahapan', 't.urutan')
+                ->get()
+                ->groupBy('id_pengajuan');
+
+        $pengajuanPerlu->each(function ($item) use ($tahapAktifByPengajuan) {
+                $tahapAktif = ($tahapAktifByPengajuan->get($item->id) ?? collect())->first();
                 $item->tahap_aktif = $tahapAktif ? $tahapAktif->nama_tahapan : '-';
                 return $item;
             });
