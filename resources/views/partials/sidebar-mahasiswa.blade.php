@@ -73,10 +73,10 @@
 
         <div id="accountMenu"
             class="hidden absolute left-4 right-4 bottom-[72px] bg-white rounded-xl border border-border-light shadow-lg overflow-hidden z-50">
-            <a href="#" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            <a href="{{ route('profile.index') }}" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                 <i data-lucide="user-round" class="w-4 h-4 text-navy"></i> Profil
             </a>
-            <a href="#" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            <a href="{{ route('settings.index') }}" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                 <i data-lucide="settings" class="w-4 h-4 text-navy"></i> Pengaturan
             </a>
             <div class="border-t border-border-light"></div>

@@ -425,6 +425,36 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // ==== SCROLL SPY UNTUK TAB ====
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('nav a[href^="#"]');
+
+    if (sections.length > 0 && navLinks.length > 0) {
+        window.addEventListener('scroll', function () {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (window.scrollY >= sectionTop - 150) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('border-navy', 'font-bold', 'text-navy');
+                link.classList.add('border-transparent', 'text-muted', 'font-medium');
+
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('border-navy', 'font-bold', 'text-navy');
+                    link.classList.remove('border-transparent', 'text-muted', 'font-medium');
+                }
+            });
+        });
+    }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
         window.lucide.createIcons();
     }

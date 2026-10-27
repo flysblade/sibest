@@ -24,6 +24,11 @@
                 <h1 class="text-xl font-extrabold text-navy">Kelola User</h1>
                 <p class="text-xs text-muted mt-1">Kelola akun mahasiswa, admin, dan penyeleksi</p>
             </div>
+            <a href="{{ route('admin.user.create') }}"
+               class="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-navy text-white text-xs font-bold hover:bg-navy-dark">
+                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                Tambah User
+            </a>
         </header>
 
         <div class="p-5 sm:p-8">

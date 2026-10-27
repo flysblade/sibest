@@ -1,5 +1,5 @@
 <aside id="sidebar"
-    class="hidden lg:flex w-64 shrink-0 bg-navy border-r border-white/10 flex-col fixed inset-y-0 left-0 transition-all duration-300 z-40">
+    class="hidden lg:flex w-64 shrink-0 bg-navy border-r border-white/10 flex-col fixed inset-y-0 left-0 transition-all duration-300 z-[50]">
 
     {{-- Logo --}}
     <div id="sidebarHeader" class="h-20 px-6 flex items-center border-b border-white/10 transition-all duration-300">
@@ -30,7 +30,6 @@
                 ['url' => route('penyeleksi.dashboard'),          'match' => 'penyeleksi.dashboard',           'icon' => 'layout-dashboard',  'label' => 'Dashboard'],
                 ['url' => route('penyeleksi.beasiswa-saya.index'),'match' => 'penyeleksi.beasiswa-saya.*',     'icon' => 'briefcase-business','label' => 'Beasiswa Saya'],
                 ['url' => route('penyeleksi.pengajuan.index'),    'match' => 'penyeleksi.pengajuan.*',         'icon' => 'clipboard-list',    'label' => 'Daftar Pengajuan'],
-                ['url' => '#',                                    'match' => null,                              'icon' => 'user-round',        'label' => 'Profil'],
             ];
         @endphp
 
@@ -75,8 +74,12 @@
         <div id="accountMenu"
             class="hidden absolute left-4 right-4 bottom-[72px] bg-white rounded-xl border border-border-light shadow-lg overflow-hidden z-50">
 
-            <a href="#" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            <a href="{{ route('profile.index') }}" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                 <i data-lucide="user-round" class="w-4 h-4 text-navy"></i> Profil
+            </a>
+
+            <a href="{{ route('settings.index') }}" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                <i data-lucide="settings" class="w-4 h-4 text-navy"></i> Pengaturan
             </a>
 
             <div class="border-t border-border-light"></div>

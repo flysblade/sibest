@@ -41,6 +41,7 @@
         {{-- TOPBAR --}}
         <header class="h-20 bg-white border-b border-border-light px-5 sm:px-8 flex items-center justify-between">
             <div class="flex items-center gap-3 min-w-0">
+                @include('partials.mobile-menu')
                 <a href="{{ route('penyeleksi.pengajuan.index') }}"
                    class="w-9 h-9 rounded-lg border border-border-light flex items-center justify-center text-navy hover:bg-gray-50 shrink-0">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i>

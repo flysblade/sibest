@@ -41,9 +41,12 @@
 
         {{-- Header --}}
         <header class="h-20 bg-white border-b border-border-light px-5 sm:px-8 flex items-center justify-between">
-            <div>
+            <div class="flex items-center min-w-0">
+                @include('partials.mobile-menu')
+                <div>
                 <p class="text-xs font-semibold text-muted">Dashboard Mahasiswa</p>
                 <h1 class="text-xl sm:text-2xl font-extrabold text-navy mt-1">Selamat datang, {{ $user->nama }} 👋</h1>
+                </div>
             </div>
             <div class="flex items-center gap-3">
                 <button class="relative w-10 h-10 rounded-lg border border-border-light flex items-center justify-center text-gray-600 hover:bg-gray-50">

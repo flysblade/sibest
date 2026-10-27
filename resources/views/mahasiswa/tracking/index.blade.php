@@ -42,13 +42,16 @@
 
         {{-- TOPBAR --}}
         <header class="h-20 bg-white border-b border-border-light px-5 sm:px-8 flex items-center justify-between">
-            <div>
+            <div class="flex items-center min-w-0">
+                @include('partials.mobile-menu')
+                <div>
                 <p class="text-xs text-muted">
                     <a href="{{ route('mahasiswa.dashboard') }}" class="hover:underline">Dashboard</a>
                     <span class="mx-1">›</span>
                     <span class="text-navy font-semibold">Tracking</span>
                 </p>
                 <h1 class="text-xl font-extrabold text-navy mt-1">Tracking Pengajuan</h1>
+                </div>
             </div>
         </header>
 

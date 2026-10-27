@@ -42,9 +42,12 @@
 
         {{-- TOPBAR --}}
         <header class="h-20 bg-white border-b border-border-light px-5 sm:px-8 flex items-center justify-between">
-            <div>
-                <h1 class="text-xl font-extrabold text-navy">Dashboard</h1>
-                <p class="text-xs text-muted mt-1">Ringkasan tugas penyeleksian</p>
+            <div class="flex items-center min-w-0">
+                @include('partials.mobile-menu')
+                <div>
+                    <h1 class="text-xl font-extrabold text-navy">Dashboard</h1>
+                    <p class="text-xs text-muted mt-1">Ringkasan tugas penyeleksian</p>
+                </div>
             </div>
             <div class="flex items-center gap-3">
                 <button class="relative w-10 h-10 rounded-lg border border-border-light flex items-center justify-center text-gray-600 hover:bg-gray-50">

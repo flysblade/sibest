@@ -58,7 +58,9 @@
         {{-- TOPBAR --}}
         <header class="h-20 bg-white border-b border-border-light px-5 sm:px-8 flex items-center justify-between">
 
-            <div>
+            <div class="flex items-center min-w-0">
+                @include('partials.mobile-menu')
+                <div>
 
                 <p class="text-xs font-semibold text-muted">
                     Mahasiswa
@@ -68,6 +70,7 @@
                     Pengajuan Saya
                 </h1>
 
+                </div>
             </div>
 
 

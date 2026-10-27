@@ -70,7 +70,9 @@
         {{-- Top bar --}}
         <header class="min-h-20 px-5 sm:px-7 lg:px-9 py-4 bg-white border-b border-gray-200 flex items-center">
 
-            <div>
+            <div class="flex items-center min-w-0">
+                @include('partials.mobile-menu')
+                <div>
 
                 <h1 class="text-xl font-extrabold text-navy">
                     Daftar Beasiswa
@@ -80,6 +82,7 @@
                     Temukan beasiswa yang sesuai dengan kebutuhanmu
                 </p>
 
+                </div>
             </div>
 
         </header>

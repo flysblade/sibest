@@ -108,13 +108,16 @@
         {{-- ================= TOPBAR ================= --}}
         <header class="h-20 px-6 lg:px-9 bg-white border-b border-gray-200 flex items-center justify-between">
 
-            <a
-                href="{{ route('mahasiswa.beasiswa.index') }}"
-                class="flex items-center gap-2 text-sm font-bold text-navy hover:text-gold transition-colors"
-            >
-                <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                Kembali ke Daftar Beasiswa
-            </a>
+            <div class="flex items-center min-w-0">
+                @include('partials.mobile-menu')
+                <a
+                    href="{{ route('mahasiswa.beasiswa.index') }}"
+                    class="flex items-center gap-2 text-sm font-bold text-navy hover:text-gold transition-colors"
+                >
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    Kembali ke Daftar Beasiswa
+                </a>
+            </div>
 
 
             <div class="flex items-center gap-4">
@@ -795,7 +798,7 @@
                                     rel="noopener noreferrer"
                                     class="w-full h-11 px-3.5 bg-white rounded-lg border border-navy flex items-center justify-center gap-2 text-navy text-xs font-bold hover:bg-gray-50 transition-colors"
                                 >
-                                    Daftar di Portal KIP-K
+                                    Daftar di Portal
                                     <i data-lucide="external-link" class="w-4 h-4"></i>
                                 </a>
 
@@ -809,7 +812,7 @@
                                         type="submit"
                                         class="w-full h-11 px-3.5 bg-navy hover:bg-navy-dark rounded-lg flex items-center justify-center gap-2 text-white text-xs font-bold transition-colors"
                                     >
-                                        Saya Sudah Daftar — Ajukan ke UNUJA
+                                        Lapor KIP-K
                                         <i data-lucide="arrow-right" class="w-4 h-4"></i>
                                     </button>
                                 </form>
